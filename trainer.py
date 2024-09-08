@@ -3,6 +3,7 @@ import pandas as pd
 import deepchem as dc
 from rdkit import Chem
 from collections import OrderedDict
+from evaluate import MolecularMetrics
 from deepchem.models.torch_models import BasicMolGANModel as MolGAN
 
 from deepchem.feat.molecule_featurizers.molgan_featurizer import GraphMatrix
@@ -18,7 +19,7 @@ name2dset = {
     "qm9": dc.molnet.load_qm9,
     "bbbp": dc.molnet.load_bbbp,
     "lipo": dc.molnet.load_lipo,
-    "pdb": dc.molnet.load_pdbbind,
+    "ppb": dc.molnet.load_ppb,
 }
 
 
@@ -77,7 +78,7 @@ def parse():
     parser.add_argument("--mode", type=str, required=True,
                         choices=["normal", "gumbel", "straight"])
     parser.add_argument("--dataset", type=str, required=True,
-                        choices=["qm7", "qm9", "bbbp", "lipo", "pdb"])
+                        choices=["qm7", "qm9", "bbbp", "lipo", "ppb"])
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--generator_steps", type=float, default=0.2)
     args = parser.parse_args()
@@ -97,24 +98,32 @@ def main(args):
     # Prepare data
     print(f"Preparing data for {args.dataset}...")
     dset = name2dset[args.dataset]
-    _, datasets, _ = dset()
+    _, datasets, _ = dset(save_dir="data/")
+    import pdb; pdb.set_trace()
     df = pd.DataFrame(data={'smiles': datasets[0].ids})
 
     print(f"Featurizing data for {args.dataset}...")
-    feat = dc.deepchem.feat.MolGanFeaturizer()
     data = df
     smiles = data['smiles'].values
-    filtered_smiles = [x for x in smiles if Chem.MolFromSmiles(x).GetNumAtoms() < 9]
+    max_num = max([Chem.MolFromSmiles(x).GetNumAtoms() for x in smiles])
+    print(f"Max amount of atoms: {max_num}")
+    filtered_smiles = [x for x in smiles if Chem.MolFromSmiles(x).GetNumAtoms() <= max_num]
+    feat = dc.deepchem.feat.MolGanFeaturizer(
+        max_atom_count=max_num
+    )
     features = feat.featurize(filtered_smiles)
     # remove non-GraphMatrix features
     features = [x for x in features if type(x) == GraphMatrix]
-    print(f"Found {len(filtered_smiles)} molecules with < 9 atoms.")
+    print(f"Found {len(filtered_smiles)} molecules with < {max_num} atoms.")
     dataset = dc.data.NumpyDataset([x.adjacency_matrix for x in features],
                                    [x.node_features for x in features])
 
     out_csv = {"seed": [],
                "validity": [],
-               "uniqueness": []}
+               "uniqueness": [],
+               "novelty": [],
+               "synth": [],
+               "drug": []}
     for cur_seed in range(120, 130):
         np.random.seed(cur_seed)
         torch.manual_seed(cur_seed)
@@ -138,7 +147,6 @@ def main(args):
         print("{} molecules generated".format(len(nmols)))
 
         nmols = list(filter(lambda x: x is not None, nmols))
-        # currently training is unstable so 0 is a common outcome
         print ("{} valid molecules".format(len(nmols)))
 
         nmols_smiles = [Chem.MolToSmiles(m) for m in nmols]
@@ -152,6 +160,11 @@ def main(args):
         out_csv["seed"].append(cur_seed)
         out_csv["uniqueness"].append(unique)
         out_csv["validity"].append(valid)
+        # get other scores, Synthesizability, Druglikeliness, Novelty
+        eval_dataset = df
+        out_csv["novelty"].append(MolecularMetrics.novel_total_score(nmols, eval_dataset))
+        out_csv["synth"].append( MolecularMetrics.synthetic_accessibility_score_scores(nmols).mean())
+        out_csv["drug"].append(MolecularMetrics.drugcandidate_scores(nmols, eval_dataset).mean())
 
     df = pd.DataFrame(out_csv, index=None)
     df.to_csv(f"mode_{args.mode}_dropout_{args.dropout}_gen_steps_{args.generator_steps}_{args.name}_results.csv")
