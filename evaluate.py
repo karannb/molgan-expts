@@ -3,11 +3,13 @@ taken from the original implementation at
 https://github.com/nicola-decao/MolGAN/blob/master/utils/molecular_metrics.py
 '''
 
-import pickle
+import os
 import gzip
-from rdkit import DataStructs
+import pickle
+import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import QED
+from rdkit import DataStructs
 from rdkit.Chem import Crippen
 
 import math
@@ -218,3 +220,23 @@ class MolecularMetrics(object):
                          choicelist=[np.exp(- (x - x_low) ** 2 / decay),
                                      np.exp(- (x - x_high) ** 2 / decay)],
                          default=np.ones_like(x))
+
+
+def GetMeanAndStd(csv_path):
+    df = pd.read_csv(csv_path)
+    print("*"*88)
+    print(csv_path)
+    print("*"*88)
+    for col in ["validity", "uniqueness", "novelty", "synth", "drug"]:
+        if col == "synth":
+            print(f"{col}: {df[col].mean():.2f} +/- {df[col].std():.2f}")
+        elif col in ["validity", "uniqueness"]:
+            print(f"{col}: {100*df[col].mean()/6400:.2f} +/- {100*df[col].std()/6400:.2f}")
+        else:
+            print(f"{col}: {100*df[col].mean():.2f} +/- {100*df[col].std():.2f}")
+    return
+
+if __name__ == '__main__':
+    for csv in os.listdir("results/"):
+        if csv.endswith(".csv") and "ppb" in csv:
+            GetMeanAndStd(f"results/{csv}")

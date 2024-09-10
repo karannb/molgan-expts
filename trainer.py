@@ -99,7 +99,6 @@ def main(args):
     print(f"Preparing data for {args.dataset}...")
     dset = name2dset[args.dataset]
     _, datasets, _ = dset(save_dir="data/")
-    import pdb; pdb.set_trace()
     df = pd.DataFrame(data={'smiles': datasets[0].ids})
 
     print(f"Featurizing data for {args.dataset}...")
@@ -111,6 +110,10 @@ def main(args):
     feat = dc.deepchem.feat.MolGanFeaturizer(
         max_atom_count=max_num
     )
+    if args.dataset == "qm9":
+        # keep a random 5k subset
+        inds = np.random.choice(len(filtered_smiles), 5000, replace=False).tolist()
+        filtered_smiles = [filtered_smiles[i] for i in inds]
     features = feat.featurize(filtered_smiles)
     # remove non-GraphMatrix features
     features = [x for x in features if type(x) == GraphMatrix]
@@ -136,9 +139,19 @@ def main(args):
                      learning_rate=0.0001, 
                      dropout_rate=dropout, 
                      batch_size=32)
-        gan.fit_gan(iterbatches(30, dataset, feat, gan), 
-                    generator_steps=generator_steps, 
-                    checkpoint_interval=2500)
+        if args.dataset == "qm9":
+            # pretrain
+            gan.fit_gan(iterbatches(150, dataset, feat, gan), 
+                        generator_steps=generator_steps, 
+                        checkpoint_interval=2500)
+            # train
+            gan.fit_gan(iterbatches(150, dataset, feat, gan, True), 
+                        generator_steps=generator_steps, 
+                        checkpoint_interval=2500)
+        else:
+            gan.fit_gan(iterbatches(30, dataset, feat, gan), 
+                        generator_steps=generator_steps, 
+                        checkpoint_interval=2500)
 
         print(f"Training for seed {cur_seed} complete.")
         print(f"Generating molecules for seed {cur_seed}...")
