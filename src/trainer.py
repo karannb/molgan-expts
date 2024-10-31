@@ -183,7 +183,7 @@ def main(args):
         out_csv["drug"].append(MolecularMetrics.drugcandidate_scores(nmols, eval_dataset).mean())
 
     df = pd.DataFrame(out_csv, index=None)
-    df.to_csv(f"mode_{args.mode}_dropout_{args.dropout}_gen_steps_{args.generator_steps}_{args.name}_results.csv")
+    df.to_csv(f"dataset_{args.dataset}_atoms_{args.vertices}_mode_{args.mode}_dropout_{args.dropout}_gen_steps_{args.generator_steps}_{args.name}_results.csv")
     
     return
 
