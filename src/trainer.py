@@ -79,6 +79,8 @@ def parse():
                         choices=["normal", "gumbel", "straight"])
     parser.add_argument("--dataset", type=str, required=True,
                         choices=["qm7", "qm9", "bbbp", "lipo", "ppb"])
+    parser.add_argument("--vertices", type=int, required=True)
+    parser.add_argument("--atoms", nargs="+", required=True)
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--generator_steps", type=float, default=0.2)
     args = parser.parse_args()
@@ -104,11 +106,12 @@ def main(args):
     print(f"Featurizing data for {args.dataset}...")
     data = df
     smiles = data['smiles'].values
-    max_num = max([Chem.MolFromSmiles(x).GetNumAtoms() for x in smiles])
+    max_num = args.vertices
     print(f"Max amount of atoms: {max_num}")
     filtered_smiles = [x for x in smiles if Chem.MolFromSmiles(x).GetNumAtoms() <= max_num]
     feat = dc.deepchem.feat.MolGanFeaturizer(
-        max_atom_count=max_num
+        max_atom_count=max_num,
+        atom_labels=args.atoms
     )
     if args.dataset == "qm9":
         # keep a random 5k subset
@@ -133,7 +136,7 @@ def main(args):
 
         # train model
         gan = MolGAN(edges=4, 
-                     vertices=9, 
+                     vertices=args.vertices, 
                      embedding_dim=32, 
                      mode=mode, 
                      learning_rate=0.0001, 
