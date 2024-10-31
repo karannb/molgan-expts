@@ -162,7 +162,7 @@ def main(args):
         nmols = feat.defeaturize(generated_data)
         print("{} molecules generated".format(len(nmols)))
 
-        nmols = list(filter(lambda x: x is not None, nmols))
+        nmols = list(filter(lambda x: (x is not None) or (not isinstance(x, np.ndarray)), nmols))
         print ("{} valid molecules".format(len(nmols)))
 
         nmols_smiles = [Chem.MolToSmiles(m) for m in nmols]
