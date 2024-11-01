@@ -47,7 +47,7 @@ def iterbatches(epochs, dataset, feat, gan, early_stop=False):
             yield {gan.data_inputs[0]: adjacency_tensor, gan.data_inputs[1]: node_tensor}
             
         if (i+1) % 10 == 0 and early_stop:
-            generated_data = gan.predict_gan_generator(6400)
+            generated_data = gan.predict_gan_generator(640)
             nmols = feat.defeaturize(generated_data)
             print("{} molecules generated".format(len(nmols)))
 
@@ -80,7 +80,7 @@ def parse():
     parser.add_argument("--dataset", type=str, required=True,
                         choices=["qm7", "qm9", "bbbp", "lipo", "ppb"])
     parser.add_argument("--vertices", type=int, required=True)
-    parser.add_argument("--atoms", nargs="+", required=True)
+    parser.add_argument("--atoms", nargs="+", type=int, required=True)
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--generator_steps", type=float, default=0.2)
     args = parser.parse_args()
@@ -137,7 +137,7 @@ def main(args):
         # train model
         gan = MolGAN(edges=4, 
                      vertices=args.vertices, 
-                     embedding_dim=32, 
+                     embedding_dim=64, 
                      mode=mode, 
                      learning_rate=0.0001, 
                      dropout_rate=dropout, 
@@ -152,13 +152,13 @@ def main(args):
                         generator_steps=generator_steps, 
                         checkpoint_interval=2500)
         else:
-            gan.fit_gan(iterbatches(30, dataset, feat, gan), 
+            gan.fit_gan(iterbatches(150, dataset, feat, gan), 
                         generator_steps=generator_steps, 
                         checkpoint_interval=2500)
 
         print(f"Training for seed {cur_seed} complete.")
         print(f"Generating molecules for seed {cur_seed}...")
-        generated_data = gan.predict_gan_generator(6400)
+        generated_data = gan.predict_gan_generator(640)
         nmols = feat.defeaturize(generated_data)
         print("{} molecules generated".format(len(nmols)))
 
