@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import deepchem as dc
@@ -47,7 +48,7 @@ def iterbatches(epochs, dataset, feat, gan, early_stop=False):
             yield {gan.data_inputs[0]: adjacency_tensor, gan.data_inputs[1]: node_tensor}
             
         if (i+1) % 10 == 0 and early_stop:
-            generated_data = gan.predict_gan_generator(640)
+            generated_data = gan.predict_gan_generator(6400)
             nmols = feat.defeaturize(generated_data)
             print("{} molecules generated".format(len(nmols)))
 
@@ -158,7 +159,7 @@ def main(args):
 
         print(f"Training for seed {cur_seed} complete.")
         print(f"Generating molecules for seed {cur_seed}...")
-        generated_data = gan.predict_gan_generator(640)
+        generated_data = gan.predict_gan_generator(6400)
         nmols = feat.defeaturize(generated_data)
         print("{} molecules generated".format(len(nmols)))
 
@@ -183,7 +184,9 @@ def main(args):
         out_csv["drug"].append(MolecularMetrics.drugcandidate_scores(nmols, eval_dataset).mean())
 
     df = pd.DataFrame(out_csv, index=None)
-    df.to_csv(f"dataset_{args.dataset}_atoms_{args.vertices}_mode_{args.mode}_dropout_{args.dropout}_gen_steps_{args.generator_steps}_{args.name}_results.csv")
+    if not os.path.exists("results/"):
+        os.makedirs("results/")
+    df.to_csv(f"results/dataset_{args.dataset}_elems_{args.atoms}_atoms_{args.vertices}_mode_{args.mode}_dropout_{args.dropout}_gen_steps_{args.generator_steps}_{args.name}_results.csv")
     
     return
 
