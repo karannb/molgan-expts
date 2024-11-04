@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import deepchem as dc
-from rdkit import Chem
+from rdkit import Chem, rdBase
 from collections import OrderedDict
 from evaluate import MolecularMetrics
 from deepchem.models.torch_models import BasicMolGANModel as MolGAN
@@ -49,17 +49,19 @@ def iterbatches(epochs, dataset, feat, gan, early_stop=False):
             
         if (i+1) % 10 == 0 and early_stop:
             generated_data = gan.predict_gan_generator(6400)
-            nmols = feat.defeaturize(generated_data)
-            print("{} molecules generated".format(len(nmols)))
 
-            nmols = list(filter(lambda x: x is not None, nmols))
-            # currently training is unstable so 0 is a common outcome
-            print ("{} valid molecules".format(len(nmols)))
+            with rdBase.BlockLogs():
+                nmols = feat.defeaturize(generated_data)
+                print("{} molecules generated".format(len(nmols)))
 
-            nmols_smiles = [Chem.MolToSmiles(m) for m in nmols]
-            nmols_smiles_unique = list(OrderedDict.fromkeys(nmols_smiles))
-            nmols_viz = [Chem.MolFromSmiles(x) for x in nmols_smiles_unique]
-            print ("{} unique valid molecules".format(len(nmols_viz)))
+                nmols = list(filter(lambda x: x is not None, nmols))
+                # currently training is unstable so 0 is a common outcome
+                print ("{} valid molecules".format(len(nmols)))
+
+                nmols_smiles = [Chem.MolToSmiles(m) for m in nmols]
+                nmols_smiles_unique = list(OrderedDict.fromkeys(nmols_smiles))
+                nmols_viz = [Chem.MolFromSmiles(x) for x in nmols_smiles_unique]
+                print ("{} unique valid molecules".format(len(nmols_viz)))
             
             if len(nmols_viz) > best_unique:
                 best_unique = len(nmols_viz)
@@ -160,17 +162,19 @@ def main(args):
         print(f"Training for seed {cur_seed} complete.")
         print(f"Generating molecules for seed {cur_seed}...")
         generated_data = gan.predict_gan_generator(6400)
-        nmols = feat.defeaturize(generated_data)
-        print("{} molecules generated".format(len(nmols)))
 
-        nmols = list(filter(lambda x: x is not None, nmols))
-        print ("{} valid molecules".format(len(nmols)))
+        with rdBase.BlockLogs():
+            nmols = feat.defeaturize(generated_data)
+            print("{} molecules generated".format(len(nmols)))
 
-        nmols_smiles = [Chem.MolToSmiles(m) for m in nmols]
-        nmols_smiles_unique = list(OrderedDict.fromkeys(nmols_smiles))
-        nmols_viz = [Chem.MolFromSmiles(x) for x in nmols_smiles_unique]
-        print ("{} unique valid molecules".format(len(nmols_viz)))
-        
+            nmols = list(filter(lambda x: x is not None, nmols))
+            print ("{} valid molecules".format(len(nmols)))
+
+            nmols_smiles = [Chem.MolToSmiles(m) for m in nmols]
+            nmols_smiles_unique = list(OrderedDict.fromkeys(nmols_smiles))
+            nmols_viz = [Chem.MolFromSmiles(x) for x in nmols_smiles_unique]
+            print ("{} unique valid molecules".format(len(nmols_viz)))
+
         unique = len(nmols_viz)
         valid = len(nmols)
 
