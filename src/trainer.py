@@ -123,7 +123,7 @@ def main(args):
     features = feat.featurize(filtered_smiles)
     # remove non-GraphMatrix features
     features = [x for x in features if type(x) == GraphMatrix]
-    print(f"Found {len(filtered_smiles)} molecules with < {max_num} atoms.")
+    print(f"Found {len(features)} molecules with < {max_num} atoms.")
     dataset = dc.data.NumpyDataset([x.adjacency_matrix for x in features],
                                    [x.node_features for x in features])
 
@@ -133,7 +133,7 @@ def main(args):
                "novelty": [],
                "synth": [],
                "drug": []}
-    for cur_seed in range(120, 130):
+    for cur_seed in range(120, 125):
         np.random.seed(cur_seed)
         torch.manual_seed(cur_seed)
 
