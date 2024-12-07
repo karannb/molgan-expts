@@ -46,7 +46,7 @@ def iterbatches(epochs, dataset, feat, gan, early_stop=False):
     for i in range(epochs):
         for batch in dataset.iterbatches(batch_size=gan.batch_size, pad_batches=True):
             adjacency_tensor = make_one_hot(torch.from_numpy(batch[0]), num_classes=gan.edges)
-            node_tensor = make_one_hot(torch.from_numpy(batch[1]), num_classes=gan.vertices)
+            node_tensor = make_one_hot(torch.from_numpy(batch[1]), num_classes=gan.nodes)
 
             yield {gan.data_inputs[0]: adjacency_tensor, gan.data_inputs[1]: node_tensor}
             
@@ -143,6 +143,7 @@ def main(args):
         # train model
         gan = MolGAN(edges=4, 
                      vertices=args.vertices, 
+                     nodes=len(args.atoms),
                      embedding_dim=64, 
                      mode=mode, 
                      learning_rate=0.0001, 
