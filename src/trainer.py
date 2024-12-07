@@ -24,6 +24,20 @@ name2dset = {
 }
 
 
+def make_one_hot(x: torch.Tensor, num_classes: int):
+    """
+    One hot encode a tensor
+    """
+    flat_tensor = x.view(-1).to(dtype=torch.int64) # flatten the input because torch.nn.functional.one_hot only works with 1D inputs
+    invalid_values = (flat_tensor < 0) | (flat_tensor >= num_classes) # x cannot be negative or >= num_classes, these entries are invalid
+    flat_tensor = torch.clamp(flat_tensor, 0, num_classes-1) # clamp the input so it can be fed to the one_hot function
+    one_hot_tensor = one_hot(flat_tensor, num_classes=num_classes) # actual one_hot
+    one_hot_tensor[invalid_values] = torch.zeros(num_classes, dtype=torch.long, device=one_hot_tensor.device) # put zeros in the invalid entries
+    one_hot_tensor = one_hot_tensor.view(*x.shape, -1) # reshape to original shape
+
+    return one_hot_tensor
+
+
 def iterbatches(epochs, dataset, feat, gan, early_stop=False):
     
     global best_unique
@@ -31,19 +45,8 @@ def iterbatches(epochs, dataset, feat, gan, early_stop=False):
     
     for i in range(epochs):
         for batch in dataset.iterbatches(batch_size=gan.batch_size, pad_batches=True):
-            flattened_adjacency = torch.from_numpy(batch[0]).view(-1).to(dtype=torch.int64) # flatten the input because torch.nn.functional.one_hot only works with 1D inputs
-            invalid_mask = (flattened_adjacency < 0) | (flattened_adjacency >= gan.edges) # edge type cannot be negative or >= gan.edges, these entries are invalid
-            clamped_adjacency = torch.clamp(flattened_adjacency, 0, gan.edges-1) # clamp the input so it can be fed to the one_hot function
-            adjacency_tensor = one_hot(clamped_adjacency, num_classes=gan.edges) # actual one_hot
-            adjacency_tensor[invalid_mask] = torch.zeros(gan.edges, dtype=torch.long) # make the invalid entries, a vector of zeros
-            adjacency_tensor = adjacency_tensor.view(*batch[0].shape, -1) # reshape to original shape.
-
-            flattened_node = torch.from_numpy(batch[1]).view(-1).to(dtype=torch.int64)
-            invalid_mask = (flattened_node < 0) | (flattened_node >= gan.nodes)
-            clamped_node = torch.clamp(flattened_node, 0, gan.nodes-1)
-            node_tensor = one_hot(clamped_node, num_classes=gan.nodes)
-            node_tensor[invalid_mask] = torch.zeros(gan.nodes, dtype=torch.long)
-            node_tensor = node_tensor.view(*batch[1].shape, -1)
+            adjacency_tensor = make_one_hot(torch.from_numpy(batch[0]), num_classes=gan.edges)
+            node_tensor = make_one_hot(torch.from_numpy(batch[1]), num_classes=gan.vertices)
 
             yield {gan.data_inputs[0]: adjacency_tensor, gan.data_inputs[1]: node_tensor}
             
@@ -122,7 +125,7 @@ def main(args):
         filtered_smiles = [filtered_smiles[i] for i in inds]
     features = feat.featurize(filtered_smiles)
     # remove non-GraphMatrix features
-    features = [x for x in features if type(x) == GraphMatrix]
+    features = [x for x in features if isinstance(x, GraphMatrix)]
     print(f"Found {len(features)} molecules with < {max_num} atoms.")
     dataset = dc.data.NumpyDataset([x.adjacency_matrix for x in features],
                                    [x.node_features for x in features])
